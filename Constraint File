@@ -1,0 +1,84 @@
+##############################################################################
+## Clock Constraints
+##############################################################################
+set_property -dict { PACKAGE_PIN E3 IOSTANDARD LVCMOS33 } [get_ports { CLK100MHZ }];
+create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports { CLK100MHZ }];
+
+##############################################################################
+## UART Interface
+##############################################################################
+## UART RX (Laptop TX -> FPGA RX)USB-UART Bridge
+set_property -dict { PACKAGE_PIN C4 IOSTANDARD LVCMOS33 } [get_ports { UART_RX }];
+set_property PULLUP true [get_ports { UART_RX }];
+
+##############################################################################
+## 7-Segment Display
+##############################################################################
+## Segment signals (Active Low, Common Anode)
+## SEG[0] = CA (segment a - top)(Cathode)
+## SEG[1] = CB (segment b - top-right)
+## SEG[2] = CC (segment c - bottom-right)
+## SEG[3] = CD (segment d - bottom)
+## SEG[4] = CE (segment e - bottom-left)
+## SEG[5] = CF (segment f - top-left)
+## SEG[6] = CG (segment g - middle)
+
+set_property -dict { PACKAGE_PIN T10 IOSTANDARD LVCMOS33 } [get_ports { SEG[0] }]; # CA
+set_property -dict { PACKAGE_PIN R10 IOSTANDARD LVCMOS33 } [get_ports { SEG[1] }]; # CB
+set_property -dict { PACKAGE_PIN K16 IOSTANDARD LVCMOS33 } [get_ports { SEG[2] }]; # CC
+set_property -dict { PACKAGE_PIN K13 IOSTANDARD LVCMOS33 } [get_ports { SEG[3] }]; # CD
+set_property -dict { PACKAGE_PIN P15 IOSTANDARD LVCMOS33 } [get_ports { SEG[4] }]; # CE
+set_property -dict { PACKAGE_PIN T11 IOSTANDARD LVCMOS33 } [get_ports { SEG[5] }]; # CF
+set_property -dict { PACKAGE_PIN L18 IOSTANDARD LVCMOS33 } [get_ports { SEG[6] }]; # CG
+
+## Anode signals (Active Low)
+## AN[0] = rightmost digit (Position 0)
+## AN[1] = Position 1
+## AN[2] = Position 2
+## AN[3] = Position 3
+## AN[4] = Position 4
+## AN[5] = Position 5 (6th digit from right)
+## AN[6] = Always OFF (leftmost display 2)
+## AN[7] = Always OFF (leftmost display 1)
+set_property -dict { PACKAGE_PIN J17 IOSTANDARD LVCMOS33 } [get_ports { AN[0] }]; # Rightmost
+set_property -dict { PACKAGE_PIN J18 IOSTANDARD LVCMOS33 } [get_ports { AN[1] }];
+set_property -dict { PACKAGE_PIN T9  IOSTANDARD LVCMOS33 } [get_ports { AN[2] }];
+set_property -dict { PACKAGE_PIN J14 IOSTANDARD LVCMOS33 } [get_ports { AN[3] }];
+set_property -dict { PACKAGE_PIN P14 IOSTANDARD LVCMOS33 } [get_ports { AN[4] }];
+set_property -dict { PACKAGE_PIN T14 IOSTANDARD LVCMOS33 } [get_ports { AN[5] }]; # 6th position
+set_property -dict { PACKAGE_PIN K2  IOSTANDARD LVCMOS33 } [get_ports { AN[6] }]; # Always OFF
+set_property -dict { PACKAGE_PIN U13 IOSTANDARD LVCMOS33 } [get_ports { AN[7] }]; # Always OFF
+
+##############################################################################
+## Timing Constraints
+##############################################################################
+## Data arrives with the i/p delay constraint of [0,2]. 
+set_input_delay -clock [get_clocks sys_clk_pin] -min 0.000 [get_ports UART_RX]
+set_input_delay -clock [get_clocks sys_clk_pin] -max 2.000 [get_ports UART_RX]
+
+## Output delay constraints for 7-segment display segments
+## o/p can change 1ns before clock edge arrival & stable after 2ns of clock edge.
+set_output_delay -clock [get_clocks sys_clk_pin] -min -1.000 [get_ports {SEG[*]}]
+set_output_delay -clock [get_clocks sys_clk_pin] -max 2.000 [get_ports {SEG[*]}]
+
+## Output delay constraints for 7-segment display anodes
+set_output_delay -clock [get_clocks sys_clk_pin] -min -1.000 [get_ports {AN[*]}]
+set_output_delay -clock [get_clocks sys_clk_pin] -max 2.000 [get_ports {AN[*]}]
+
+##############################################################################
+## Bitstream Configuration
+##############################################################################
+## FPGA powered by 3.3V during programming.
+set_property CONFIG_VOLTAGE 3.3 [current_design]
+set_property CFGBVS VCCO [current_design]
+## current_design = top module(top_anpr_display)
+
+##############################################################################
+## Additional Timing Constraints for Display Multiplexing
+##############################################################################
+## Set false path for display multiplexing since it's slow and visual
+## Tells timing analyzer to do not check timing for these signals.
+set_false_path -from [get_clocks sys_clk_pin] -to [get_ports {AN[*]}]
+set_false_path -from [get_clocks sys_clk_pin] -to [get_ports {SEG[*]}]
+## [*] means 'Wildcard' & it means apply to ALL bits of the SEG/AN array. 
+##############################################################################
